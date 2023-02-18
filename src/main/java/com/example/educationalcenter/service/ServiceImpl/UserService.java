@@ -4,6 +4,7 @@ import com.example.educationalcenter.entity.User;
 import com.example.educationalcenter.repository.UserRepository;
 import com.example.educationalcenter.service.UserSer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,6 +15,9 @@ public class UserService implements UserSer {
     @Autowired
     UserRepository userRepository;
 
+    @Autowired
+    PasswordEncoder passwordEncoder;
+
     @Override
     public List<User> getAll() throws Exception {
         return userRepository.findAll();
@@ -22,6 +26,7 @@ public class UserService implements UserSer {
     @Override
     public User add(User user) throws Exception {
         if (user.getId() == null) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
             return userRepository.save(user);
         }else {
             throw new RuntimeException("id kerakmas");

@@ -1,50 +1,55 @@
 package com.example.educationalcenter.controller;
 
 import com.example.educationalcenter.entity.User;
-import com.example.educationalcenter.security.JwtUser;
 import com.example.educationalcenter.security.JwtUtil;
-import com.example.educationalcenter.security.MyUserDetailsService;
 import com.example.educationalcenter.security.Token;
+import com.example.educationalcenter.security.UserMaxsus;
+import com.example.educationalcenter.security.UserProvider;
 import com.example.educationalcenter.service.ServiceImpl.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@CrossOrigin
+@CrossOrigin(maxAge = 3600)
 public class AuthController {
     @Autowired
-    UserDetailsService userDetailsService;
-    @Autowired
-    MyUserDetailsService authenticationManager;
-    @Autowired
-    JwtUtil jwtUtil;
-    @Autowired
-    PasswordEncoder passwordEncoder;
-    @Autowired
-    UserService userService;
+    private AuthenticationManager authenticationManager;
 
+    @Autowired
+    private UserProvider userProvider;
 
-    @PostMapping("/api/auth")
-    public ResponseEntity<?> login(@RequestBody JwtUser jwtUser) throws Exception {
-        authentication(jwtUser.getUsername(), jwtUser.getPassword());
+    @Autowired
+    private UserService userService;
 
-        if (userDetailsService.loadUserByUsername(jwtUser.getUsername()).getPassword().equals(jwtUser.getPassword())) {
-            final UserDetails userDetails = userDetailsService.loadUserByUsername(jwtUser.getUsername());
+    @Autowired
+    private JwtUtil jwtTokenUtil;
 
-            final String token = jwtUtil.generateToken(userDetails);
-            return new ResponseEntity(new Token(token), HttpStatus.ACCEPTED);
+    @PostMapping(value = "/api/auth")
+    public ResponseEntity<?> createAuthenticationToken(@RequestBody UserMaxsus userMaxsus)
+            throws Exception {
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
+                    userMaxsus.getUsername(), userMaxsus.getPassword()));
+        } catch (DisabledException e) {
+            throw new Exception("USER_DISABLED", e);
+        } catch (BadCredentialsException e) {
+            throw new Exception("INVALID_CREDENTIALS", e);
+        } catch (Exception ex){
+            ex.printStackTrace();
         }
-        else
-            return new ResponseEntity(HttpStatus.NON_AUTHORITATIVE_INFORMATION);
 
+        UserDetails userDetails = userProvider.loadUserByUsername(userMaxsus.getUsername());
+
+        String token = jwtTokenUtil.generateToken(userDetails, userMaxsus.isRememberMe());
+
+        return ResponseEntity.ok(new Token(token));
     }
 
 
@@ -54,9 +59,6 @@ public class AuthController {
         return new ResponseEntity(HttpStatus.ACCEPTED);
  
     }
-
-
-
 
     private void  authentication(String username, String password) throws Exception{
         try{
